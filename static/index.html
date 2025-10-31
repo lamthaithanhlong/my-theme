@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <title>Trình phát nhạc nền</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+      }
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        margin: 0;
+        padding: 2rem;
+        background: radial-gradient(circle at top, #f1f5f9, #e2e8f0 60%, #cbd5f5);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 16px;
+        padding: 2rem;
+        box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+        max-width: 360px;
+        width: 100%;
+        text-align: center;
+        backdrop-filter: blur(20px);
+      }
+      h1 {
+        font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .status {
+        margin: 1rem 0;
+        font-weight: 600;
+        color: #1e293b;
+      }
+      button {
+        cursor: pointer;
+        border: none;
+        padding: 0.85rem 1.5rem;
+        margin: 0.25rem;
+        border-radius: 999px;
+        font-size: 1rem;
+        font-weight: 600;
+        transition: transform 150ms ease, box-shadow 150ms ease, opacity 200ms ease;
+      }
+      button:active {
+        transform: scale(0.97);
+      }
+      .play {
+        background: linear-gradient(135deg, #34d399, #059669);
+        color: white;
+        box-shadow: 0 12px 24px rgba(5, 150, 105, 0.35);
+      }
+      .stop {
+        background: linear-gradient(135deg, #f97316, #ea580c);
+        color: white;
+        box-shadow: 0 12px 24px rgba(234, 88, 12, 0.35);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Nhạc nền theme.mp3</h1>
+      <p class="status" id="status">Đang tải trạng thái...</p>
+      <div>
+        <button class="play" id="play">Phát</button>
+        <button class="stop" id="stop">Tắt</button>
+      </div>
+    </div>
+
+    <script>
+      const statusLabel = document.getElementById("status");
+      const playButton = document.getElementById("play");
+      const stopButton = document.getElementById("stop");
+
+      async function updateState() {
+        try {
+          const res = await fetch("/state");
+          if (!res.ok) throw new Error("Không lấy được trạng thái");
+          const data = await res.json();
+          setStatus(Boolean(data.playing));
+        } catch (err) {
+          statusLabel.textContent = err.message;
+        }
+      }
+
+      function setStatus(isPlaying) {
+        statusLabel.textContent = isPlaying ? "Đang phát" : "Đang tắt";
+        playButton.disabled = isPlaying;
+        stopButton.disabled = !isPlaying;
+      }
+
+      async function post(action) {
+        try {
+          const res = await fetch(`/${action}`, { method: "POST" });
+          if (!res.ok) throw new Error("Không thực hiện được hành động");
+          const data = await res.json();
+          setStatus(Boolean(data.playing));
+        } catch (err) {
+          statusLabel.textContent = err.message;
+        }
+      }
+
+      playButton.addEventListener("click", () => post("play"));
+      stopButton.addEventListener("click", () => post("stop"));
+
+      updateState();
+    </script>
+  </body>
+</html>
+
