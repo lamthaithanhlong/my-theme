@@ -3,12 +3,14 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math"
 	"net/http"
 	"os"
 	"sync"
 	"time"
 
 	"github.com/faiface/beep"
+	"github.com/faiface/beep/effects"
 	"github.com/faiface/beep/mp3"
 	"github.com/faiface/beep/speaker"
 )
@@ -34,8 +36,15 @@ func newAudioPlayer(path string) (*audioPlayer, error) {
 
 	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 
+	volume := &effects.Volume{
+		Streamer: beep.Loop(-1, streamer),
+		Base:     2,
+		Volume:   math.Log(0.8) / math.Log(2),
+		Silent:   false,
+	}
+
 	player := &audioPlayer{
-		ctrl:     &beep.Ctrl{Streamer: beep.Loop(-1, streamer), Paused: true},
+		ctrl:     &beep.Ctrl{Streamer: volume, Paused: true},
 		streamer: streamer,
 		playing:  false,
 	}
