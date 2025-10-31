@@ -2,10 +2,12 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"log"
 	"math"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -22,7 +24,7 @@ type audioPlayer struct {
 	playing  bool
 }
 
-func newAudioPlayer(path string) (*audioPlayer, error) {
+func newAudioPlayer(path string, volumeRatio float64) (*audioPlayer, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -36,11 +38,16 @@ func newAudioPlayer(path string) (*audioPlayer, error) {
 
 	speaker.Init(format.SampleRate, format.SampleRate.N(time.Second/10))
 
-	volume := &effects.Volume{
-		Streamer: beep.Loop(-1, streamer),
-		Base:     2,
-		Volume:   math.Log(0.8) / math.Log(2),
-		Silent:   false,
+	loop := beep.Loop(-1, streamer)
+	volume := &effects.Volume{Streamer: loop, Base: 2}
+
+	if volumeRatio <= 0 {
+		volume.Silent = true
+	} else {
+		if volumeRatio > 1 {
+			volumeRatio = 1
+		}
+		volume.Volume = math.Log(volumeRatio) / math.Log(volume.Base)
 	}
 
 	player := &audioPlayer{
@@ -99,13 +106,40 @@ func writeJSON(w http.ResponseWriter, payload any) {
 	}
 }
 
+func parseVolumePercent(defaultPercent float64) float64 {
+	volumePercent := defaultPercent
+	if env, ok := os.LookupEnv("THEME_VOLUME"); ok {
+		if v, err := strconv.ParseFloat(env, 64); err == nil {
+			volumePercent = v
+		} else {
+			log.Printf("THEME_VOLUME khong hop le (%q): %v", env, err)
+		}
+	}
+
+	flag.Float64Var(&volumePercent, "volume", volumePercent, "am luong (0-100)%")
+	flag.Float64Var(&volumePercent, "v", volumePercent, "am luong (0-100)%")
+	flag.Parse()
+
+	if volumePercent < 0 {
+		return 0
+	}
+	if volumePercent > 100 {
+		return 100
+	}
+	return volumePercent
+}
+
 func main() {
-	player, err := newAudioPlayer("theme.mp3")
+	volumePercent := parseVolumePercent(60)
+	volumeRatio := volumePercent / 100
+
+	player, err := newAudioPlayer("theme.mp3", volumeRatio)
 	if err != nil {
 		log.Fatalf("khong the mo theme.mp3: %v", err)
 	}
 	defer player.close()
 
+	log.Printf("Khoi dong voi am luong %.1f%%", volumePercent)
 	player.play()
 
 	http.HandleFunc("/play", func(w http.ResponseWriter, r *http.Request) {
